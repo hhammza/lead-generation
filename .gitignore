@@ -23,9 +23,6 @@ ENV/
 outputs/*
 !outputs/.gitkeep
 
-# Frontend build output
-frontend/dist/
-
 # OS and editor files
 .DS_Store
 Thumbs.db

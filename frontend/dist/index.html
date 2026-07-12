@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F7F8FA; --surface: #FFFFFF; --border: #E4E7EC; --border-strong: #C9CDD6;
+      --text: #111827; --text-muted: #6B7280; --text-faint: #9CA3AF;
+      --accent: #2563EB; --accent-bg: #EFF6FF; --accent-hover: #1D4ED8;
+      --green: #059669; --green-bg: #ECFDF5; --red: #DC2626; --red-bg: #FEF2F2;
+      --amber: #D97706; --amber-bg: #FFFBEB;
+      --mono: 'JetBrains Mono', monospace; --sans: 'Inter', sans-serif;
+      --radius: 8px; --radius-lg: 12px;
+    }
+    html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+    #app { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; }
+    .sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .sidebar-logo .wordmark { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+    .sidebar-logo .sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; font-weight: 400; }
+    .nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); padding: 0 20px 8px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; transition: background 0.12s; color: var(--text-muted); font-weight: 500; font-size: 13.5px; position: relative; user-select: none; }
+    .nav-item:hover { background: var(--bg); color: var(--text); }
+    .nav-item.active { background: var(--accent-bg); color: var(--accent); }
+    .nav-item.active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-radius: 0 2px 2px 0; }
+    .nav-icon { font-size: 16px; flex-shrink: 0; }
+    .sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+    .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+    .status-text { font-size: 11.5px; color: var(--text-muted); }
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .topbar-title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+    .topbar-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 1px; }
+    .content { flex: 1; overflow-y: auto; padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+    .card-title .icon { font-size: 14px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: 12px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.01em; }
+    input, textarea, select { font-family: var(--sans); font-size: 13.5px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 11px; outline: none; transition: border-color 0.12s, box-shadow 0.12s; width: 100%; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.08); background: var(--surface); }
+    input.err-field { border-color: var(--red); box-shadow: 0 0 0 3px rgba(220,38,38,0.08); }
+    textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+    input[type="password"] { letter-spacing: 0.05em; }
+    .hint { font-size: 11.5px; color: var(--text-faint); }
+    .err-msg { font-size: 11.5px; color: var(--red); margin-top: 2px; }
+    .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 18px; border-radius: var(--radius); font-family: var(--sans); font-size: 13.5px; font-weight: 600; cursor: pointer; border: none; transition: background 0.12s, opacity 0.12s; text-decoration: none; user-select: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #B91C1C; }
+    .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #047857; }
+    .console-wrap { background: #0F1117; border-radius: var(--radius-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .console-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .console-header-left { display: flex; align-items: center; gap: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #FF5F57; } .dot-yellow { background: #FEBC2E; } .dot-green { background: #28C840; }
+    .console-title { font-size: 11.5px; color: rgba(255,255,255,0.4); font-family: var(--mono); margin-left: 4px; }
+    .console-badge { font-size: 10px; font-family: var(--mono); font-weight: 500; padding: 2px 8px; border-radius: 99px; }
+    .badge-idle { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.3); }
+    .badge-running { background: rgba(37,99,235,0.25); color: #60A5FA; }
+    .badge-done { background: rgba(5,150,105,0.2); color: #34D399; }
+    .badge-error { background: rgba(220,38,38,0.2); color: #F87171; }
+    .console-body { font-family: var(--mono); font-size: 12px; line-height: 1.7; color: rgba(255,255,255,0.75); padding: 14px 16px; height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .console-body::-webkit-scrollbar { width: 4px; }
+    .console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    .log-info { color: rgba(255,255,255,0.65); } .log-ok { color: #34D399; } .log-err { color: #F87171; }
+    .log-found { color: #60A5FA; } .log-done { color: #FBBF24; } .log-wait { color: #A78BFA; } .log-ping { display: none; }
+    .cursor-blink { display: inline-block; width: 7px; height: 13px; background: rgba(255,255,255,0.5); margin-left: 2px; vertical-align: middle; animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .home-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .home-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s; }
+    .home-card:hover { border-color: var(--accent); box-shadow: 0 4px 20px rgba(37,99,235,0.08); transform: translateY(-1px); }
+    .home-card-icon { font-size: 26px; margin-bottom: 12px; }
+    .home-card-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .home-card-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; }
+    .home-card-arrow { margin-top: 16px; font-size: 12px; color: var(--accent); font-weight: 500; }
+    .welcome-header { margin-bottom: 8px; }
+    .welcome-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 5px; }
+    .welcome-sub { font-size: 13.5px; color: var(--text-muted); }
+    .content::-webkit-scrollbar { width: 5px; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .divider { height: 1px; background: var(--border); margin: 4px 0; }
+    /* CSV Preview Table */
+    .csv-preview-wrap { margin-top: 4px; overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    .csv-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    .csv-table th { background: var(--bg); padding: 7px 12px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .csv-table td { padding: 6px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .csv-table tr:last-child td { border-bottom: none; }
+    .csv-table tr:nth-child(even) td { background: var(--bg); }
+    .download-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--green-bg); border: 1px solid #A7F3D0; border-radius: var(--radius-lg); }
+    .download-bar-text { font-size: 13px; font-weight: 500; color: var(--green); flex: 1; }
+
+
+    /* ── Failed list table ── */
+    .failed-section { margin-top:14px; }
+    .failed-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .failed-title { font-size:12px; font-weight:600; color:var(--red); }
+    .failed-copy-btn { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text-muted); cursor:pointer; font-family:var(--sans); font-weight:500; }
+    .failed-copy-btn:hover { background:var(--surface); color:var(--text); }
+    .failed-table-wrap { max-height:220px; overflow-y:auto; border:1px solid #FCA5A5; border-radius:var(--radius); }
+    .failed-table { border-collapse:collapse; width:100%; font-size:12px; }
+    .failed-table th { background:#FEF2F2; padding:6px 12px; text-align:left; font-weight:600; color:var(--red); border-bottom:1px solid #FCA5A5; white-space:nowrap; position:sticky; top:0; }
+    .failed-table td { padding:6px 12px; border-bottom:1px solid #FEE2E2; color:var(--text); word-break:break-all; }
+    .failed-table tr:last-child td { border-bottom:none; }
+    .failed-table tr:nth-child(even) td { background:#FFF5F5; }
+    .failed-table .reason-cell { color:var(--text-muted); font-size:11px; }
+
+    /* ── Email / WhatsApp progress stats ── */
+    .stats-panel { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:0; }
+    .stat-box { flex:1; min-width:110px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; text-align:center; }
+    .stat-box .stat-num { font-size:22px; font-weight:700; letter-spacing:-0.02em; }
+    .stat-box .stat-lbl { font-size:11px; color:var(--text-muted); font-weight:500; margin-top:2px; }
+    .stat-total .stat-num  { color:var(--accent); }
+    .stat-sent  .stat-num  { color:var(--green); }
+    .stat-fail  .stat-num  { color:var(--red); }
+    .stat-pct   .stat-num  { color:var(--amber); }
+    .progress-wrap { margin-top:14px; }
+    .progress-label { display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted); margin-bottom:6px; }
+    .progress-track { height:8px; background:var(--border); border-radius:99px; overflow:hidden; display:flex; gap:0; }
+    .progress-sent { height:100%; background:var(--green); transition:width 0.3s ease; border-radius:99px 0 0 99px; }
+    .progress-fail { height:100%; background:var(--red); transition:width 0.3s ease; }
+    .progress-pending { height:100%; background:var(--border); flex:1; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="sidebar-static"></div>
+  <div id="main-content"></div>
+
+  <script>
+  // ═══════════════════════════════════════════════════
+  // STATE  — never wiped on render, forms read from here
+  // ═══════════════════════════════════════════════════
+  const state = {
+    page: 'home',
+    logs:   { scrape: [], email: [], whatsapp: [] },
+    status: { scrape: 'idle', email: 'idle', whatsapp: 'idle' },
+    outputFile: { scrape: null },          // filename returned by server after scrape
+    previewRows: { scrape: null },         // loaded preview data
+
+    // Persistent form values — survive all re-renders
+    forms: {
+      scrape: {
+        query: 'restaurants in Georgia, USA',
+        target: '50',
+        output: 'leads.csv'
+      },
+      email: {
+        from:    'contact@loopdevelopers.com',
+        pass:    '',
+        smtp:    'smtp.hostinger.com',
+        port:    '587',
+        csv:     'test.csv',
+        subject: 'How Many Potential Customers Are You Losing?',
+        body:    `Dear Business Owner,\n\nEvery day, potential customers visit your website, message your WhatsApp, or inquire about your services.\n\nMany are looking for quick answers before making a purchase, placing an order, or booking a service. When responses are delayed, customers often leave and choose a competitor instead.\n\nAn AI-powered assistant can instantly answer customer questions, provide business information, assist with orders and bookings, and engage customers 24/7 across your website, WhatsApp, and other platforms.\n\nIf this is something you'd be interested in exploring for your business, simply reply to this email.\n\nBest Regards,\nLoop Developers`,
+        delay:   '5'
+      },
+      whatsapp: {
+        csv:     'test.csv',
+        col:     'Phone',
+        profile: 'C:\\Temp\\SeleniumProfile',
+        msg:     'Testing Msg',
+        delay:   '10'
+      }
+    },
+    errors: {},
+    emailStats:    { total:0, sent:0, failed:0, failedList:[] },
+    whatsappStats: { total:0, sent:0, failed:0, failedList:[] }
+  };
+
+  let evtSources = {};
+
+  // ═══════════════════════════════════════════════════
+  // SAVE FORM STATE before any re-render
+  // ═══════════════════════════════════════════════════
+  function saveFormState() {
+    const p = state.page;
+    if (p === 'scrape') {
+      state.forms.scrape.query  = v('sc-query')  ?? state.forms.scrape.query;
+      state.forms.scrape.target = v('sc-target') ?? state.forms.scrape.target;
+      state.forms.scrape.output = v('sc-output') ?? state.forms.scrape.output;
+    } else if (p === 'email') {
+      state.forms.email.from    = v('em-from')    ?? state.forms.email.from;
+      state.forms.email.pass    = v('em-pass')    ?? state.forms.email.pass;
+      state.forms.email.smtp    = v('em-smtp')    ?? state.forms.email.smtp;
+      state.forms.email.port    = v('em-port')    ?? state.forms.email.port;
+      state.forms.email.csv     = v('em-csv')     ?? state.forms.email.csv;
+      state.forms.email.subject = v('em-subject') ?? state.forms.email.subject;
+      state.forms.email.body    = v('em-body')    ?? state.forms.email.body;
+      state.forms.email.delay   = v('em-delay')   ?? state.forms.email.delay;
+    } else if (p === 'whatsapp') {
+      state.forms.whatsapp.csv     = v('wa-csv')     ?? state.forms.whatsapp.csv;
+      state.forms.whatsapp.col     = v('wa-col')     ?? state.forms.whatsapp.col;
+      state.forms.whatsapp.profile = v('wa-profile') ?? state.forms.whatsapp.profile;
+      state.forms.whatsapp.msg     = v('wa-msg')     ?? state.forms.whatsapp.msg;
+      state.forms.whatsapp.delay   = v('wa-delay')   ?? state.forms.whatsapp.delay;
+    }
+  }
+
+  function v(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : null;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ROUTER
+  // ═══════════════════════════════════════════════════
+  function navigate(page) {
+    saveFormState();
+    state.page = page;
+    state.errors = {};
+    render();
+  }
+
+  // ═══════════════════════════════════════════════════
+  // VALIDATION helpers
+  // ═══════════════════════════════════════════════════
+  function showErrors(errs) {
+    state.errors = errs;
+    // Highlight fields
+    Object.keys(errs).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('err-field');
+      const msgEl = document.getElementById(id + '-err');
+      if (msgEl) msgEl.textContent = errs[id];
+    });
+  }
+
+  function clearErrors() {
+    state.errors = {};
+  }
+
+  // ═══════════════════════════════════════════════════
+  // API — START JOB
+  // ═══════════════════════════════════════════════════
+  async function startJob(tool, payload) {
+    clearErrors();
+    state.logs[tool] = [];
+    state.status[tool] = 'running';
+    state.outputFile[tool] = null;
+    state.previewRows[tool] = null;
+    if (tool === 'email')    { state.emailStats    = { total:0, sent:0, failed:0, failedList:[] }; updateStatsPanel('email'); }
+    if (tool === 'whatsapp') { state.whatsappStats = { total:0, sent:0, failed:0, failedList:[] }; updateStatsPanel('whatsapp'); }
+
+    // Update ONLY the console + action area, not the forms
+    updateConsoleArea(tool);
+    updateActionArea(tool);
+    // Show stats card if it exists (email/whatsapp)
+    const sc = document.getElementById(`stats-card-${tool}`);
+    if (sc) { sc.style.display = ''; updateStatsPanel(tool); }
+
+    try {
+      const res = await fetch(`/api/run/${tool}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.error) {
+        appendLog(tool, `[ERROR] ${data.error}`, 'log-err');
+        state.status[tool] = 'error';
+        updateActionArea(tool);
+        return;
+      }
+    } catch (e) {
+      appendLog(tool, `[ERROR] Cannot reach server: ${e}`, 'log-err');
+      state.status[tool] = 'error';
+      updateActionArea(tool);
+      return;
+    }
+
+    // Open SSE stream
+    if (evtSources[tool]) evtSources[tool].close();
+    const es = new EventSource(`/api/logs/${tool}`);
+    evtSources[tool] = es;
+
+    es.onmessage = (e) => {
+      const line = e.data;
+      if (line === '[PING]') return;
+      if (line.startsWith('__EXIT__')) {
+        const parts = line.replace('__EXIT__', '').split('|');
+        const code = parts[0];
+        const file = parts[1] || '';
+        state.status[tool] = code === '0' ? 'done' : 'error';
+        if (file) state.outputFile[tool] = file;
+        es.close();
+        updateActionArea(tool);
+        updateBadge(tool);
+        if (file && code === '0') loadPreview(tool, file);
+        return;
+      }
+      appendLog(tool, line);
+    };
+
+    es.onerror = () => {
+      state.status[tool] = 'error';
+      es.close();
+      updateActionArea(tool);
+      updateBadge(tool);
+    };
+  }
+
+  async function stopJob(tool) {
+    await fetch(`/api/stop/${tool}`, { method: 'POST' });
+    state.status[tool] = 'idle';
+    if (evtSources[tool]) evtSources[tool].close();
+    appendLog(tool, '[INFO] Stopped by user.', 'log-wait');
+    updateActionArea(tool);
+    updateBadge(tool);
+  }
+
+  // WhatsApp QR confirmation — no blocking input()
+  async function confirmWhatsAppQR() {
+    const btn = document.getElementById('wa-qr-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '✓ Signal sent…'; }
+    try {
+      await fetch('/api/whatsapp/ready', { method: 'POST' });
+      appendLog('whatsapp', '[INFO] QR confirmation sent. Script will start sending now.', 'log-ok');
+    } catch (e) {
+      appendLog('whatsapp', `[ERROR] Could not send signal: ${e}`, 'log-err');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // SURGICAL DOM UPDATES — never touch the forms
+  // ═══════════════════════════════════════════════════
+  function appendLog(tool, line, clsOverride) {
+    const cls = clsOverride || classifyLine(line);
+    state.logs[tool].push({ line, cls });
+    // Parse progress for email and whatsapp
+    if (tool === 'email' || tool === 'whatsapp') {
+      // [INFO] Found N valid emails.  OR  [INFO] Found N phone numbers
+      const totalM = line.match(/\[INFO\] Found (\d+) (valid emails|phone numbers)/);
+      if (totalM) {
+        const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+        s.total = parseInt(totalM[1]); updateStatsPanel(tool);
+      }
+      // [OK] Sent to …
+      if (line.startsWith('[OK]')) {
+        const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+        s.sent++; updateStatsPanel(tool);
+      }
+      // [FAIL] recipient — reason
+      if (line.startsWith('[FAIL]')) {
+        const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+        s.failed++;
+        // Extract address and reason: "[FAIL] addr — reason"
+        const failM = line.match(/^\[FAIL\]\s+(.+?)\s+[—–-]+\s+(.+)$/);
+        if (failM) s.failedList.push({ addr: failM[1].trim(), reason: failM[2].trim() });
+        else        s.failedList.push({ addr: line.replace('[FAIL]','').trim(), reason: '' });
+        updateStatsPanel(tool);
+      }
+      // [DONE] Sent: N, Failed: N, Total: N
+      const doneM = line.match(/\[DONE\].*?Sent: (\d+).*?Failed: (\d+).*?Total: (\d+)/);
+      if (doneM) {
+        const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+        s.sent   = parseInt(doneM[1]);
+        s.failed = parseInt(doneM[2]);
+        s.total  = parseInt(doneM[3]);
+        updateStatsPanel(tool);
+      }
+    }
+    const body = document.getElementById(`console-${tool}`);
+    if (body) {
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = line + '\n';
+      // Remove placeholder if present
+      const placeholder = body.querySelector('.log-placeholder');
+      if (placeholder) placeholder.remove();
+      body.appendChild(span);
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+
+  function updateConsoleArea(tool) {
+    const wrap = document.getElementById(`console-wrap-${tool}`);
+    if (wrap) wrap.innerHTML = consoleHTML(tool);
+  }
+
+  function updateActionArea(tool) {
+    const area = document.getElementById(`action-area-${tool}`);
+    if (area) area.innerHTML = actionHTML(tool);
+  }
+
+  function updateBadge(tool) {
+    const badge = document.getElementById(`badge-${tool}`);
+    if (badge) {
+      const st = state.status[tool];
+      badge.className = `console-badge badge-${st}`;
+      badge.textContent = st.toUpperCase();
+    }
+    // Also update nav dot
+    const navDot = document.getElementById(`nav-dot-${tool}`);
+    if (navDot) navDot.textContent = state.status[tool] === 'running' ? '🟢 ' : '';
+  }
+
+  function updateStatsPanel(tool) {
+    const el = document.getElementById(`stats-panel-${tool}`);
+    if (!el) return;
+    const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+    const done = s.sent + s.failed;
+    const pct  = s.total > 0 ? Math.round((done / s.total) * 100) : 0;
+    const sentPct = s.total > 0 ? (s.sent   / s.total * 100).toFixed(1) : 0;
+    const failPct = s.total > 0 ? (s.failed / s.total * 100).toFixed(1) : 0;
+
+    const failedTableHTML = s.failedList.length > 0 ? `
+      <div class="failed-section">
+        <div class="failed-header">
+          <span class="failed-title">❌ Failed ${tool === 'email' ? 'Addresses' : 'Numbers'} (${s.failedList.length})</span>
+          <button class="failed-copy-btn" onclick="copyFailedList('${tool}')">⎘ Copy all</button>
+        </div>
+        <div class="failed-table-wrap">
+          <table class="failed-table">
+            <thead><tr><th>#</th><th>${tool === 'email' ? 'Email Address' : 'Phone Number'}</th><th>Reason</th></tr></thead>
+            <tbody>
+              ${s.failedList.map((r,i) => `<tr>
+                <td style="color:var(--text-faint);width:36px">${i+1}</td>
+                <td><strong>${escHtml(r.addr)}</strong></td>
+                <td class="reason-cell">${escHtml(r.reason || '—')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
+    el.innerHTML = `
+      <div class="stats-panel">
+        <div class="stat-box stat-total"><div class="stat-num">${s.total || '—'}</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-box stat-sent"><div class="stat-num">${s.sent}</div><div class="stat-lbl">Sent ✓</div></div>
+        <div class="stat-box stat-fail"><div class="stat-num">${s.failed}</div><div class="stat-lbl">Failed ✗</div></div>
+        <div class="stat-box stat-pct"><div class="stat-num">${pct}%</div><div class="stat-lbl">Progress</div></div>
+      </div>
+      ${s.total > 0 ? `
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>${done} of ${s.total} processed</span>
+          <span>${sentPct}% delivered · ${failPct}% failed</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-sent" style="width:${sentPct}%"></div>
+          <div class="progress-fail" style="width:${failPct}%"></div>
+        </div>
+      </div>` : ''}
+      ${failedTableHTML}
+    `;
+  }
+
+  function copyFailedList(tool) {
+    const s = tool === 'email' ? state.emailStats : state.whatsappStats;
+    if (!s.failedList.length) return;
+    const text = s.failedList.map(r => r.reason ? `${r.addr}\t${r.reason}` : r.addr).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.failed-copy-btn');
+      if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '⎘ Copy all'; }, 2000); }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // CSV PREVIEW
+  // ═══════════════════════════════════════════════════
+  async function loadPreview(tool, filename) {
+    try {
+      const res = await fetch(`/api/preview/${encodeURIComponent(filename)}`);
+      const data = await res.json();
+      if (data.rows) {
+        state.previewRows[tool] = data.rows;
+        const previewArea = document.getElementById(`preview-area-${tool}`);
+        if (previewArea) previewArea.innerHTML = previewHTML(tool);
+      }
+    } catch (e) {
+      console.warn('Preview load failed:', e);
+    }
+  }
+
+  function previewHTML(tool) {
+    const rows = state.previewRows[tool];
+    const file = state.outputFile[tool];
+    if (!rows || rows.length === 0) return '';
+    const cols = Object.keys(rows[0]);
+    const tableRows = rows.map(r =>
+      `<tr>${cols.map(c => `<td title="${escHtml(String(r[c]||''))}">${escHtml(String(r[c]||''))}</td>`).join('')}</tr>`
+    ).join('');
+    return `
+      <div class="card">
+        <div class="card-title"><span class="icon">📊</span> Scraped Data Preview <span style="font-weight:400;color:var(--text-faint);font-size:11px">(first ${rows.length} rows)</span></div>
+        <div class="download-bar" style="margin-bottom:14px;">
+          <span class="download-bar-text">✅ Scrape complete — <strong>${file}</strong> is ready</span>
+          <a class="btn btn-success" href="/api/download/${encodeURIComponent(file)}" download="${escHtml(file)}">⬇ Download CSV</a>
+        </div>
+        <div class="csv-preview-wrap">
+          <table class="csv-table">
+            <thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join('')}</tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // LOG HELPERS
+  // ═══════════════════════════════════════════════════
+  function classifyLine(line) {
+    if (line.includes('[DONE]')) return 'log-done';
+    if (line.includes('[OK]'))   return 'log-ok';
+    if (line.includes('[ERROR]') || line.includes('[FAIL]')) return 'log-err';
+    if (line.includes('[FOUND]') || line.includes('[SCRAPING]') || line.includes('[SENDING]')) return 'log-found';
+    if (line.includes('[WAIT]') || line.includes('[ACTION]')) return 'log-wait';
+    if (line === '[PING]') return 'log-ping';
+    return 'log-info';
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ═══════════════════════════════════════════════════
+  // CONSOLE COMPONENT (static shell — body filled surgically)
+  // ═══════════════════════════════════════════════════
+  function consoleHTML(tool) {
+    const st = state.status[tool];
+    const logsHTML = state.logs[tool].length
+      ? state.logs[tool].map(({line,cls}) => `<span class="${cls}">${escHtml(line)}\n</span>`).join('')
+      : '<span class="log-info log-placeholder">Waiting for output...</span>';
+    return `
+      <div class="console-wrap" id="console-wrap-${tool}">
+        <div class="console-header">
+          <div class="console-header-left">
+            <span class="dot dot-red"></span><span class="dot dot-yellow"></span><span class="dot dot-green"></span>
+            <span class="console-title">output</span>
+          </div>
+          <span class="console-badge badge-${st}" id="badge-${tool}">${st.toUpperCase()}</span>
+        </div>
+        <div class="console-body" id="console-${tool}">${logsHTML}${st==='running'?'<span class="cursor-blink"></span>':''}</div>
+      </div>
+    `;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // ACTION AREA (buttons, download, qr signal)
+  // ═══════════════════════════════════════════════════
+  function actionHTML(tool) {
+    const running = state.status[tool] === 'running';
+    const done    = state.status[tool] === 'done';
+    const labels  = { scrape: ['▶ Start Scraping','⏳ Running...'], email: ['▶ Start Campaign','⏳ Sending...'], whatsapp: ['▶ Start Sending','⏳ Running...'] };
+    const [idleLabel, runLabel] = labels[tool];
+    const runFn   = { scrape: 'runScrape', email: 'runEmail', whatsapp: 'runWhatsApp' }[tool];
+
+    let extra = '';
+    if (tool === 'whatsapp' && running) {
+      extra = `<button class="btn btn-ghost" id="wa-qr-btn" onclick="confirmWhatsAppQR()" style="margin-left:8px;">📱 QR Scanned – Continue</button>`;
+    }
+    if (tool === 'scrape' && done && state.outputFile.scrape) {
+      extra = `<a class="btn btn-success" href="/api/download/${encodeURIComponent(state.outputFile.scrape)}" download="${escHtml(state.outputFile.scrape)}">⬇ Download CSV</a>`;
+    }
+
+    return `
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="${runFn}()" ${running ? 'disabled' : ''}>${running ? runLabel : idleLabel}</button>
+        ${running ? `<button class="btn btn-danger" onclick="stopJob('${tool}')">⏹ Stop</button>` : ''}
+        ${extra}
+      </div>
+    `;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // PAGES — forms use stored state values, no placeholders that reset
+  // ═══════════════════════════════════════════════════
+  function homePage() {
+    return `
+      <div class="welcome-header">
+        <div class="welcome-title">Good to see you, Hamza 👋</div>
+        <div class="welcome-sub">Pick a tool to get started.</div>
+      </div>
+      <div class="home-grid">
+        <div class="home-card" onclick="navigate('scrape')">
+          <div class="home-card-icon">🗺️</div>
+          <div class="home-card-title">Maps Scraper</div>
+          <div class="home-card-desc">Scrape Google Maps listings and extract emails from business websites.</div>
+          <div class="home-card-arrow">Open tool →</div>
+        </div>
+        <div class="home-card" onclick="navigate('email')">
+          <div class="home-card-icon">✉️</div>
+          <div class="home-card-title">Bulk Email</div>
+          <div class="home-card-desc">Send personalized cold emails to leads from a CSV file via SMTP.</div>
+          <div class="home-card-arrow">Open tool →</div>
+        </div>
+        <div class="home-card" onclick="navigate('whatsapp')">
+          <div class="home-card-icon">💬</div>
+          <div class="home-card-title">Bulk WhatsApp</div>
+          <div class="home-card-desc">Send bulk messages through WhatsApp Web using Selenium automation.</div>
+          <div class="home-card-arrow">Open tool →</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function fieldErr(id) {
+    return state.errors[id] ? `<span class="err-msg" id="${id}-err">${escHtml(state.errors[id])}</span>` : `<span class="err-msg" id="${id}-err"></span>`;
+  }
+
+  function scrapePage() {
+    const f = state.forms.scrape;
+    return `
+      <div class="card">
+        <div class="card-title"><span class="icon">⚙️</span> Scraper Settings</div>
+        <div class="form-grid">
+          <div class="field form-full">
+            <label>Search Query</label>
+            <input id="sc-query" type="text" placeholder="e.g. restaurants in New York, USA" value="${escHtml(f.query)}" oninput="state.forms.scrape.query=this.value" />
+            ${fieldErr('sc-query')}
+          </div>
+          <div class="field">
+            <label>Max Results</label>
+            <input id="sc-target" type="number" value="${escHtml(f.target)}" min="1" max="500" oninput="state.forms.scrape.target=this.value" />
+          </div>
+          <div class="field">
+            <label>Output CSV Filename</label>
+            <input id="sc-output" type="text" value="${escHtml(f.output)}" oninput="state.forms.scrape.output=this.value" />
+            <span class="hint">Saved automatically to the <code>outputs/</code> folder</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div id="action-area-scrape">${actionHTML('scrape')}</div>
+      </div>
+      <div id="console-area-scrape">${consoleHTML('scrape')}</div>
+      <div id="preview-area-scrape">${state.previewRows.scrape ? previewHTML('scrape') : ''}</div>
+    `;
+  }
+
+  function emailPage() {
+    const f = state.forms.email;
+    return `
+      <div class="card">
+        <div class="card-title"><span class="icon">📨</span> SMTP Settings</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>From Email</label>
+            <input id="em-from" type="text" placeholder="contact@yourdomain.com" value="${escHtml(f.from)}" oninput="state.forms.email.from=this.value" />
+            ${fieldErr('em-from')}
+          </div>
+          <div class="field">
+            <label>Email Password</label>
+            <input id="em-pass" type="password" placeholder="••••••••" value="${escHtml(f.pass)}" oninput="state.forms.email.pass=this.value" />
+            ${fieldErr('em-pass')}
+          </div>
+          <div class="field">
+            <label>SMTP Server</label>
+            <input id="em-smtp" type="text" value="${escHtml(f.smtp)}" oninput="state.forms.email.smtp=this.value" />
+          </div>
+          <div class="field">
+            <label>SMTP Port</label>
+            <input id="em-port" type="number" value="${escHtml(f.port)}" oninput="state.forms.email.port=this.value" />
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">📄</span> Campaign</div>
+        <div class="form-grid">
+          <div class="field form-full">
+            <label>CSV File Path</label>
+            <input id="em-csv" type="text" placeholder="leads.csv" value="${escHtml(f.csv)}" oninput="state.forms.email.csv=this.value" />
+            ${fieldErr('em-csv')}
+            <span class="hint">Must have an "Email" column</span>
+          </div>
+          <div class="field form-full">
+            <label>Subject Line</label>
+            <input id="em-subject" type="text" value="${escHtml(f.subject)}" oninput="state.forms.email.subject=this.value" />
+            ${fieldErr('em-subject')}
+          </div>
+          <div class="field form-full">
+            <label>Message Body</label>
+            <textarea id="em-body" style="min-height:140px" oninput="state.forms.email.body=this.value">${escHtml(f.body)}</textarea>
+          </div>
+          <div class="field">
+            <label>Delay Between Emails (seconds)</label>
+            <input id="em-delay" type="number" value="${escHtml(f.delay)}" min="1" oninput="state.forms.email.delay=this.value" />
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div id="action-area-email">${actionHTML('email')}</div>
+      </div>
+      <div class="card" id="stats-card-email" style="${state.status.email === 'idle' ? 'display:none' : ''}">
+        <div class="card-title"><span class="icon">📊</span> Campaign Progress</div>
+        <div id="stats-panel-email"></div>
+      </div>
+      ${consoleHTML('email')}
+    `;
+  }
+
+  function whatsappPage() {
+    const f = state.forms.whatsapp;
+    const running = state.status.whatsapp === 'running';
+    return `
+      <div class="card">
+        <div class="card-title"><span class="icon">🔧</span> Configuration</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>CSV File Path</label>
+            <input id="wa-csv" type="text" value="${escHtml(f.csv)}" oninput="state.forms.whatsapp.csv=this.value" />
+            ${fieldErr('wa-csv')}
+          </div>
+          <div class="field">
+            <label>Phone Column Name</label>
+            <input id="wa-col" type="text" value="${escHtml(f.col)}" oninput="state.forms.whatsapp.col=this.value" />
+          </div>
+          <div class="field form-full">
+            <label>Chrome Profile Path</label>
+            <input id="wa-profile" type="text" placeholder="C:\\Temp\\SeleniumProfile" value="${escHtml(f.profile)}" oninput="state.forms.whatsapp.profile=this.value" />
+            <span class="hint">Used to save WhatsApp Web login between runs</span>
+          </div>
+          <div class="field form-full">
+            <label>Message</label>
+            <textarea id="wa-msg" oninput="state.forms.whatsapp.msg=this.value">${escHtml(f.msg)}</textarea>
+            ${fieldErr('wa-msg')}
+          </div>
+          <div class="field">
+            <label>Delay Between Messages (seconds)</label>
+            <input id="wa-delay" type="number" value="${escHtml(f.delay)}" min="1" oninput="state.forms.whatsapp.delay=this.value" />
+          </div>
+        </div>
+      </div>
+      <div class="card" style="background:var(--amber-bg); border-color: #FDE68A;">
+        <div style="font-size:12.5px; color: var(--amber); font-weight:500; display:flex; gap:8px; align-items:flex-start;">
+          <span>⚠️</span>
+          <span>WhatsApp Web will open in a Chrome window. After scanning the QR code, click <strong>"QR Scanned – Continue"</strong> in the action bar below. No terminal interaction needed.</span>
+        </div>
+      </div>
+      <div class="card">
+        <div id="action-area-whatsapp">${actionHTML('whatsapp')}</div>
+      </div>
+      <div class="card" id="stats-card-whatsapp" style="${state.status.whatsapp === 'idle' ? 'display:none' : ''}">
+        <div class="card-title"><span class="icon">📊</span> Campaign Progress</div>
+        <div id="stats-panel-whatsapp"></div>
+      </div>
+      ${consoleHTML('whatsapp')}
+    `;
+  }
+
+  // ═══════════════════════════════════════════════════
+  // RUN HANDLERS — reads from state.forms, validates
+  // ═══════════════════════════════════════════════════
+  function runScrape() {
+    const f = state.forms.scrape;
+    const errs = {};
+    if (!f.query.trim()) errs['sc-query'] = 'Search query is required.';
+    if (Object.keys(errs).length) { showErrors(errs); return; }
+    startJob('scrape', {
+      query:          f.query.trim(),
+      target_results: f.target,
+      output_file:    f.output.trim() || 'leads.csv'
+    });
+  }
+
+  function runEmail() {
+    const f = state.forms.email;
+    const errs = {};
+    if (!f.from.trim())    errs['em-from']    = 'Email address is required.';
+    if (!f.pass)           errs['em-pass']    = 'Password is required.';
+    if (!f.csv.trim())     errs['em-csv']     = 'CSV file path is required.';
+    if (!f.subject.trim()) errs['em-subject'] = 'Subject line is required.';
+    if (Object.keys(errs).length) { showErrors(errs); return; }
+    startJob('email', {
+      csv_file:       f.csv.trim(),
+      email_address:  f.from.trim(),
+      email_password: f.pass,
+      smtp_server:    f.smtp.trim(),
+      smtp_port:      f.port,
+      subject:        f.subject.trim(),
+      message:        f.body,
+      delay:          f.delay
+    });
+  }
+
+  function runWhatsApp() {
+    const f = state.forms.whatsapp;
+    const errs = {};
+    if (!f.csv.trim()) errs['wa-csv'] = 'CSV file path is required.';
+    if (!f.msg.trim()) errs['wa-msg'] = 'Message cannot be empty.';
+    if (Object.keys(errs).length) { showErrors(errs); return; }
+    startJob('whatsapp', {
+      csv_file:     f.csv.trim(),
+      phone_column: f.col.trim(),
+      message:      f.msg,
+      delay:        f.delay,
+      profile_path: f.profile.trim()
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // FULL RENDER — only called on page navigation
+  // ═══════════════════════════════════════════════════
+  const PAGE_META = {
+    home:      { title: 'Dashboard',     desc: 'Loop Developers outreach tools' },
+    scrape:    { title: 'Maps Scraper',  desc: 'Scrape Google Maps and extract business emails' },
+    email:     { title: 'Bulk Email',    desc: 'Send cold email campaigns from a CSV' },
+    whatsapp:  { title: 'Bulk WhatsApp', desc: 'Send messages via WhatsApp Web automation' },
+  };
+
+  function navItem(id, label, icon) {
+    const active = state.page === id;
+    const running = state.status[id] === 'running';
+    return `<div class="nav-item ${active ? 'active' : ''}" onclick="navigate('${id}')">
+      <span id="nav-dot-${id}">${running ? '🟢 ' : ''}</span><span class="nav-icon">${icon}</span> ${label}
+    </div>`;
+  }
+
+  function render() {
+    const meta = PAGE_META[state.page];
+    const pageContent = { home: homePage, scrape: scrapePage, email: emailPage, whatsapp: whatsappPage }[state.page]();
+
+    document.getElementById('app').innerHTML = `
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="wordmark">Loop Dashboard</div>
+          <div class="sub">Outreach Toolkit</div>
+        </div>
+        <div class="nav-label">Tools</div>
+        ${navItem('home',      'Home',         '🏠')}
+        ${navItem('scrape',    'Maps Scraper', '🗺️')}
+        ${navItem('email',     'Bulk Email',   '✉️')}
+        ${navItem('whatsapp',  'WhatsApp',     '💬')}
+        <div class="sidebar-footer">
+          <span class="status-dot"></span><span class="status-text">Server connected</span>
+        </div>
+      </div>
+      <div class="main">
+        <div class="topbar">
+          <div>
+            <div class="topbar-title">${meta.title}</div>
+            <div class="topbar-desc">${meta.desc}</div>
+          </div>
+          ${state.page !== 'home' ? `<button class="btn btn-ghost" onclick="navigate('home')" style="font-size:12px">← Back</button>` : ''}
+        </div>
+        <div class="content">${pageContent}</div>
+      </div>
+    `;
+  }
+
+  render();
+  </script>
+</body>
+</html>
