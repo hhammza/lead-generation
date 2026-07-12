@@ -19,14 +19,12 @@ ENV/
 .env
 .env.*
 
-# Frontend dependencies and builds
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-
 # Generated output data
 outputs/*
 !outputs/.gitkeep
+
+# Frontend build output
+frontend/dist/
 
 # OS and editor files
 .DS_Store
